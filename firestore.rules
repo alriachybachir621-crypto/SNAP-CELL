@@ -1,0 +1,211 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'admin@snapcell.app';
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // Validation Helpers
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'nameEn', 'nameAr', 'brand', 'category', 'price',
+        'condition', 'inStock', 'isNew', 'isSale',
+        'options', 'images', 'order', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'nameEn', 'nameAr', 'brand', 'category', 'price', 'oldPrice',
+        'condition', 'inStock', 'isNew', 'isSale', 'size',
+        'descriptionEn', 'descriptionAr', 'options', 'images', 'order', 'updatedAt'
+      ])
+      && isValidString(data.nameEn, 1, 140)
+      && isValidString(data.nameAr, 1, 140)
+      && isValidString(data.brand, 0, 80)
+      && isValidString(data.category, 1, 60)
+      && (data.price is int || data.price is float) && data.price >= 0 && data.price <= 1000000
+      && (!('oldPrice' in data) || data.oldPrice == null || ((data.oldPrice is int || data.oldPrice is float) && data.oldPrice >= 0 && data.oldPrice <= 1000000))
+      && (data.condition == 'new' || data.condition == 'used')
+      && data.inStock is bool
+      && data.isNew is bool
+      && data.isSale is bool
+      && (!('size' in data) || isValidString(data.size, 0, 40))
+      && (!('descriptionEn' in data) || isValidString(data.descriptionEn, 0, 1000))
+      && (!('descriptionAr' in data) || isValidString(data.descriptionAr, 0, 1000))
+      && data.options is list && data.options.size() <= 20
+      && (data.options.size() == 0 || isValidString(data.options[0], 1, 100))
+      && data.images is list && data.images.size() <= 10
+      && (data.images.size() == 0 || isValidString(data.images[0], 1, 2000))
+      && (data.order is int || data.order is float)
+      && data.updatedAt == request.time;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['key', 'nameEn', 'nameAr', 'image', 'order'])
+      && data.keys().hasOnly(['key', 'nameEn', 'nameAr', 'image', 'order'])
+      && isValidString(data.key, 1, 60) && data.key.matches('^[a-z0-9_\\-]+$')
+      && isValidString(data.nameEn, 1, 80)
+      && isValidString(data.nameAr, 1, 80)
+      && isValidString(data.image, 0, 2000)
+      && (data.order is int || data.order is float);
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll([
+        'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr',
+        'icon', 'whatsappMessageEn', 'whatsappMessageAr', 'order'
+      ])
+      && data.keys().hasOnly([
+        'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr',
+        'icon', 'whatsappMessageEn', 'whatsappMessageAr', 'order'
+      ])
+      && isValidString(data.titleEn, 1, 100)
+      && isValidString(data.titleAr, 1, 100)
+      && isValidString(data.descriptionEn, 1, 400)
+      && isValidString(data.descriptionAr, 1, 400)
+      && isValidString(data.icon, 1, 40)
+      && isValidString(data.whatsappMessageEn, 0, 400)
+      && isValidString(data.whatsappMessageAr, 0, 400)
+      && (data.order is int || data.order is float);
+    }
+
+    function isValidGalleryItem(data) {
+      return data.keys().hasAll(['titleEn', 'titleAr', 'image', 'order'])
+      && data.keys().hasOnly(['titleEn', 'titleAr', 'image', 'order'])
+      && isValidString(data.titleEn, 0, 120)
+      && isValidString(data.titleAr, 0, 120)
+      && isValidString(data.image, 0, 2000)
+      && (data.order is int || data.order is float);
+    }
+
+    function isValidShopSettings(data) {
+      return data.keys().hasAll([
+        'heroTitleEn', 'heroTitleAr', 'heroSubtitleEn', 'heroSubtitleAr', 'heroImage',
+        'phoneDisplay', 'whatsappNumber', 'addressEn', 'addressAr',
+        'hoursEn', 'hoursAr', 'mapsLink', 'mapsEmbedUrl', 'facebookUrl', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'heroTitleEn', 'heroTitleAr', 'heroSubtitleEn', 'heroSubtitleAr', 'heroImage',
+        'phoneDisplay', 'whatsappNumber', 'addressEn', 'addressAr',
+        'hoursEn', 'hoursAr', 'mapsLink', 'mapsEmbedUrl', 'facebookUrl', 'updatedAt'
+      ])
+      && isValidString(data.heroTitleEn, 1, 160)
+      && isValidString(data.heroTitleAr, 1, 160)
+      && isValidString(data.heroSubtitleEn, 0, 300)
+      && isValidString(data.heroSubtitleAr, 0, 300)
+      && isValidString(data.heroImage, 0, 2000)
+      && isValidString(data.phoneDisplay, 1, 40)
+      && isValidString(data.whatsappNumber, 1, 30)
+      && isValidString(data.addressEn, 1, 200)
+      && isValidString(data.addressAr, 1, 200)
+      && isValidString(data.hoursEn, 0, 160)
+      && isValidString(data.hoursAr, 0, 160)
+      && isValidString(data.mapsLink, 0, 1000)
+      && isValidString(data.mapsEmbedUrl, 0, 1000)
+      && isValidString(data.facebookUrl, 0, 500)
+      && data.updatedAt == request.time;
+    }
+
+    function isValidAppMeta(data) {
+      return data.keys().hasAll(['setupComplete', 'updatedAt'])
+      && data.keys().hasOnly(['setupComplete', 'updatedAt'])
+      && data.setupComplete is bool
+      && data.updatedAt == request.time;
+    }
+
+    // Public catalog collections: public read, admin-only write
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'nameEn', 'nameAr', 'brand', 'category', 'price', 'oldPrice',
+          'condition', 'inStock', 'isNew', 'isSale', 'size',
+          'descriptionEn', 'descriptionAr', 'options', 'images', 'order', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming());
+      allow update: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['key', 'nameEn', 'nameAr', 'image', 'order']);
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    match /services/{serviceId} {
+      allow get: if isValidId(serviceId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(serviceId) && isValidService(incoming());
+      allow update: if isAdmin() && isValidId(serviceId) && isValidService(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr',
+          'icon', 'whatsappMessageEn', 'whatsappMessageAr', 'order'
+        ]);
+      allow delete: if isAdmin() && isValidId(serviceId);
+    }
+
+    match /gallery/{galleryId} {
+      allow get: if isValidId(galleryId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(galleryId) && isValidGalleryItem(incoming());
+      allow update: if isAdmin() && isValidId(galleryId) && isValidGalleryItem(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['titleEn', 'titleAr', 'image', 'order']);
+      allow delete: if isAdmin() && isValidId(galleryId);
+    }
+
+    match /shopSettings/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if true;
+      allow create: if isAdmin() && docId == 'main' && isValidShopSettings(incoming());
+      allow update: if isAdmin() && docId == 'main' && isValidShopSettings(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'heroTitleEn', 'heroTitleAr', 'heroSubtitleEn', 'heroSubtitleAr', 'heroImage',
+          'phoneDisplay', 'whatsappNumber', 'addressEn', 'addressAr',
+          'hoursEn', 'hoursAr', 'mapsLink', 'mapsEmbedUrl', 'facebookUrl', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /appMeta/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if false;
+      allow create: if isAdmin() && docId == 'setup' && isValidAppMeta(incoming());
+      allow update: if isAdmin() && docId == 'setup' && isValidAppMeta(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['setupComplete', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+  }
+}

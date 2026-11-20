@@ -1,0 +1,6 @@
+{
+  "name": "SNAP CELL",
+  "description": "SNAP CELL — Mobile phones, Gulf phones (buy, sell & repair), accessories, perfumes, bags, watches & smart glasses in Taalabaya, Zahle, Lebanon.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
